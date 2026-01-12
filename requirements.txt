@@ -1,2 +1,6 @@
 streamlit
 pandas
+geopy
+openpyxl
+folium
+requests
