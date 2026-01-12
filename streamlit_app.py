@@ -10,7 +10,7 @@ from folium.features import DivIcon
 from streamlit.components.v1 import html as st_html
 
 # ========================== CONFIG ==========================
-TEMPLATE_PATH = "Sourcing base.xlsx"   # modèle Excel avec en-têtes
+TEMPLATE_PATH = "sortie_carte.xlsx"   # modèle Excel avec en-têtes
 START_ROW = 11                         # 1re ligne de data dans le modèle
 
 PRIMARY = "#0b1d4f"
@@ -822,100 +822,102 @@ def map_to_html(fmap):
     bio = BytesIO(); bio.write(s); bio.seek(0); return bio
 
 
-
 # ======================== INTERFACE =========================
 
-# --- THEME HORS SITE CONSEIL (CSS) ---
+# --- CSS / STYLE (On garde ton style blanc) ---
 st.markdown("""
 <style>
-    /* 1. Fond général BLANC comme le site officiel */
-    .stApp {
-        background-color: #FFFFFF !important;
-        font-family: 'Helvetica text', 'Helvetica', 'Arial', sans-serif;
-    }
-
-    /* 2. En-têtes (H1, H2...) en Bleu Marine Hors Site */
-    h1, h2, h3, h4 {
-        color: #0b1d4f !important;
-        font-weight: 700;
-        margin-bottom: 0.5rem;
-    }
-    
-    /* 3. Les encadrés (Cards) pour structurer */
-    .css-card {
-        background-color: #F8F9FA; /* Gris très léger */
-        padding: 20px;
-        border-radius: 8px;
-        border: 1px solid #E9ECEF;
-        margin-bottom: 20px;
-    }
-
-    /* 4. Boutons : Le style "Hors Site" (Carrés, bleus foncés) */
-    .stButton > button {
-        background-color: #0b1d4f !important;
-        color: white !important;
-        border-radius: 4px !important; /* Coins moins ronds */
-        border: none;
-        padding: 0.6rem 1.5rem;
-        font-weight: 600;
-        text-transform: uppercase;
-        letter-spacing: 1px;
-        width: 100%;
-        transition: background-color 0.3s;
-    }
-    .stButton > button:hover {
-        background-color: #1a3a8f !important; /* Un peu plus clair au survol */
-    }
-
-    /* 5. Inputs et Selectbox */
-    .stTextInput > div > div > input {
-        border: 1px solid #ced4da;
-        border-radius: 4px;
-        color: #495057;
-    }
-    
-    /* Masquer le menu hamburger standard de Streamlit pour faire plus "Site Web" */
-    #MainMenu {visibility: hidden;}
-    footer {visibility: hidden;}
-    
+    .stApp { background-color: #FFFFFF !important; color: #000000 !important; }
+    h1, h2, h3 { color: #0b1d4f !important; font-family: "Inter", sans-serif; }
+    .stButton>button { background-color: #0b1d4f; color: white; border-radius: 4px; width: 100%; }
+    .css-card { background-color: #F8F9FA; padding: 20px; border-radius: 8px; border: 1px solid #E9ECEF; }
+    .stTextInput>div>div>input { border: 1px solid #ced4da; }
 </style>
 """, unsafe_allow_html=True)
 
 # --- ENTÊTE ---
-# On met un grand titre propre
-st.title("OUTIL DE SOURCING MOA")
+st.title("📍 Outil de Sourcing MOA")
 st.markdown("---")
 
-# --- MISE EN PAGE : 2 COLONNES (2/3 à gauche, 1/3 à droite) ---
+# --- MISE EN PAGE 2 COLONNES ---
 main_col, side_col = st.columns([7, 3], gap="large")
 
-# ================= COLONNE DE GAUCHE (ACTIONS) =================
 with main_col:
-    st.markdown("### 1. IMPORTEZ VOS DONNÉES")
-    st.info("Le fichier doit être au format CSV (export standard de la base).")
+    st.subheader("1. Données & Projet")
     
-    file = st.file_uploader("Choisissez votre fichier CSV", type=["csv"], label_visibility="collapsed")
+    # L'adresse est maintenant OBLIGATOIRE (puisque plus de mode simple)
+    base_address = st.text_input("🏠 Adresse du projet", 
+                                 placeholder="Ex : 10 rue de la Paix, 75000 Paris")
     
-    st.markdown("<br>", unsafe_allow_html=True) # Espace
-    
-    st.markdown("### 2. PARAMÈTRES DU PROJET")
-    
-    # On met le mode et l'adresse l'un en dessous de l'autre ou côte à côte
-    mode = st.radio("Type de traitement souhaité :", 
-                    ["🧾 Mode simple (Nettoyage uniquement)", "🚗 Mode enrichi (Carte + Distances)"],
-                    horizontal=True)
-    
-    base_address = ""
-    if mode == "🚗 Mode enrichi (Carte + Distances)":
-        st.markdown("**Adresse de référence du projet :**")
-        base_address = st.text_input("Adresse", placeholder="Ex: 10 rue de la Paix, 75000 Paris", label_visibility="collapsed")
+    file = st.file_uploader("📄 Fichier CSV (Export base)", type=["csv"])
 
-    st.markdown("<br>", unsafe_allow_html=True)
+with side_col:
+    # Panneau de droite
+    st.image("Conseil-noir.jpg", width=150)
+    with st.container():
+        st.markdown("""<div class="css-card">""", unsafe_allow_html=True)
+        st.markdown("#### ⚙️ Réglages")
+        name_full = st.text_input("Nom Excel", "Sourcing_Complet")
+        name_map = st.text_input("Nom Carte", "Carte_Projet")
+        st.caption("Contactez JAROD en cas de bug.")
+        st.markdown("""</div>""", unsafe_allow_html=True)
 
-    # Bouton d'action principal (Gros bouton)
-    generate_btn = False
-    if file:
-        if mode == "🚗 Mode enrichi (Carte + Distances)" and not base_address:
-            st.warning("⚠️ Veuillez entrer une adresse pour calculer les distances.")
-        else:
-            generate_btn = True
+
+# --- LOGIQUE DE TRAITEMENT ---
+if file:
+    if not base_address:
+        st.warning("⚠️ L'adresse du projet est obligatoire pour calculer les distances.")
+    else:
+        # On lance le calcul
+        with st.status("Traitement en cours...", expanded=True) as status:
+            try:
+                st.write("🔄 Lecture et nettoyage des données...")
+                # 1. On crée le DF de base
+                base_df = process_csv_to_df(file) 
+                
+                st.write("🌍 Calcul des distances et géolocalisation...")
+                # 2. On calcule les distances (C'est ici qu'on définit 'df')
+                df, base_coords, coords_dict = compute_distances(base_df, base_address)
+                
+                status.update(label="✅ Terminé !", state="complete", expanded=False)
+
+                # --- AFFICHAGE DES RÉSULTATS ---
+                st.success(f"{len(df)} entreprises traitées.")
+
+                # Boutons de téléchargement
+                col_dl1, col_dl2 = st.columns(2)
+                
+                with col_dl1:
+                    # Excel
+                    excel_data = to_excel(df)
+                    st.download_button(
+                        "⬇️ Télécharger Excel Complet",
+                        data=excel_data,
+                        file_name=f"{name_full}.xlsx",
+                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                        use_container_width=True
+                    )
+
+                with col_dl2:
+                    # Carte HTML
+                    if base_coords:
+                        fmap = make_map(df, base_coords, coords_dict, base_address)
+                        html_map = map_to_html(fmap)
+                        st.download_button(
+                            "🗺️ Télécharger Carte Interactive",
+                            data=html_map,
+                            file_name=f"{name_map}.html",
+                            mime="text/html",
+                            use_container_width=True
+                        )
+
+                # Aperçu visuel
+                st.markdown("---")
+                if base_coords:
+                    st_html(html_map.getvalue().decode("utf-8"), height=500)
+                
+                with st.expander("Voir les données brutes"):
+                    st.dataframe(df)
+
+            except Exception as e:
+                st.error(f"Une erreur est survenue : {e}")
