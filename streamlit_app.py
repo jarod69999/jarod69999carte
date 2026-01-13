@@ -900,8 +900,10 @@ if file:
 
                 with col_dl2:
                     # Carte HTML
+                    # Carte HTML
                     if base_coords:
-                        fmap = make_map(df, base_coords, coords_dict, base_address)
+                    # On ajoute "use_groups" ici 👇
+                        fmap = make_map(df, base_coords, coords_dict, base_address, group_mode=use_groups)
                         html_map = map_to_html(fmap)
                         st.download_button(
                             "🗺️ Télécharger Carte Interactive",
