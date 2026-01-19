@@ -792,34 +792,84 @@ def to_simple(df, template="doc_base_contact_simple.xlsx", start=11):
 
 
 # ===================== CARTE (Folium) =======================
-def make_map(df, base_coords, coords_dict, base_address):
-    fmap = folium.Map(location=[46.6, 2.5], zoom_start=5, tiles="CartoDB positron", control_scale=True)
+
+def get_marker_style(name, group_mode=False):
+    """
+    Définit la couleur et l'icône selon le nom de l'entreprise.
+    Retourne : (couleur, icone)
+    """
+    n = name.lower()
+    
+    # Par défaut (Bleu / Industrie)
+    color = "blue"
+    icon = "industry"
+    
+    if not group_mode:
+        return color, icon
+
+    # --- BINÔME 1 : ORANGE (Ossabois / Demathieu) ---
+    if "ossabois" in n:
+        return "orange", "industry"
+    if "demathieu" in n:
+        return "orange", "building" # On met une icône batiment pour le constructeur
+
+    # --- BINÔME 2 : VIOLET (Savare / Eiffage) ---
+    if "savare" in n:
+        return "purple", "industry"
+    if "eiffage" in n:
+        return "purple", "building"
+
+    # --- BINÔME 3 : VERT (TH / Bouygues) ---
+    if "th tech" in n or "technologies et habitats" in n:
+        return "green", "industry"
+    if "bouygues" in n:
+        return "green", "building"
+
+    return color, icon
+
+
+def make_map(df, base_coords, coords_dict, base_address, group_mode=False):
+    # Centrage initial (approximatif France)
+    fmap = folium.Map(location=[46.6, 2.5], zoom_start=6, tiles="CartoDB positron", control_scale=True)
+    
+    # Marqueur PROJET (Toujours Rouge)
     if base_coords:
         folium.Marker(base_coords, icon=folium.Icon(color="red", icon="star"),
                       popup=f"<b>Projet</b><br>{base_address}",
                       tooltip="Projet").add_to(fmap)
+    
+    # Boucle sur les entreprises
     for _, r in df.iterrows():
         name = r.get("Raison sociale","")
         c = coords_dict.get(name)
         if not c: continue
+        
         lat, lon, country = c
         addr = r.get("Adresse","")
         cp = r.get("Code postal","")
-        folium.Marker([lat,lon],
-            icon=folium.Icon(color="blue", icon="industry", prefix="fa"),
+        
+        # Récupération de la couleur et de l'icône dynamique
+        marker_color, marker_icon = get_marker_style(name, group_mode)
+
+        # Ajout du marqueur
+        folium.Marker(
+            [lat,lon],
+            icon=folium.Icon(color=marker_color, icon=marker_icon, prefix="fa"),
             popup=f"<b>{name}</b><br>{addr}<br>{cp or ''} — {country}",
-            tooltip=name).add_to(fmap)
+            tooltip=name
+        ).add_to(fmap)
+        
+        # Ajout de l'étiquette texte (toujours bleue ou adaptée ?)
+        # Ici je laisse le texte en bleu standard pour la lisibilité, 
+        # mais on peut aussi changer la couleur du texte si besoin.
         folium.map.Marker(
             [lat, lon],
             icon=DivIcon(icon_size=(180,36), icon_anchor=(0,0),
                          html=f'<div style="font-weight:600;color:#1f6feb;white-space:nowrap;'
                               f'text-shadow:0 0 3px #fff;">{name}</div>')
         ).add_to(fmap)
+        
     return fmap
-
-def map_to_html(fmap):
-    s = fmap.get_root().render().encode("utf-8")
-    bio = BytesIO(); bio.write(s); bio.seek(0); return bio
 
 
 # ======================== INTERFACE =========================
@@ -853,15 +903,21 @@ with main_col:
 
 with side_col:
     # Panneau de droite
-    st.image("Conseil-noir.jpg", width=150)
+    st.image("Conseil-noir.jpg", width=150) # (Si vous avez cette image)
     with st.container():
         st.markdown("""<div class="css-card">""", unsafe_allow_html=True)
         st.markdown("#### ⚙️ Réglages")
         name_full = st.text_input("Nom Excel", "Sourcing_Complet")
         name_map = st.text_input("Nom Carte", "Carte_Projet")
+        
+        # --- AJOUT ICI ---
+        st.markdown("---")
+        use_groups = st.checkbox("🎨 Colorer par binômes", value=True, 
+                                 help="Si coché : Ossabois/Demathieu en Orange, Eiffage/Savare en Violet, etc.")
+        # -----------------
+        
         st.caption("Contactez JAROD en cas de bug.")
         st.markdown("""</div>""", unsafe_allow_html=True)
-
 
 # --- LOGIQUE DE TRAITEMENT ---
 if file:
