@@ -15,7 +15,7 @@ START_ROW = 11                         # 1re ligne de data dans le modèle
 
 PRIMARY = "#0b1d4f"
 BG      = "#f5f0eb"
-st.set_page_config(page_title="MOA – v2 ", page_icon="📍", layout="wide")
+st.set_page_config(page_title="Choix_acteur ", page_icon="📍", layout="wide")
 # ===============================================================
 # KEEP ALIVE – empêche l'app de se mettre en sommeil (ping interne)
 # ===============================================================
